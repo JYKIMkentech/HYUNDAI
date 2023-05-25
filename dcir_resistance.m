@@ -188,18 +188,18 @@ for i = 1:length(BigIC)
     R30s = [R30s, data(BigIC(i)).R(end)];
 end
 
-% spline을 사용하여 점들을 부드럽게 이어주기
+% spline을 사용하여 점들을 이어주기
 smoothed_SOC_001s = linspace(min(SOC001s), max(SOC001s), 100);
 smoothed_R_001s = spline(SOC001s, R001s, smoothed_SOC_001s);
 
-smoothed_SOC_1s = linspace(min(SOC1s), max(SOC1s), 100); % 보다 부드러운 곡선을 위해 임의의 구간을 생성합니다.
-smoothed_R_1s = spline(SOC1s, R1s, smoothed_SOC_1s); % spline 함수를 사용하여 점들을 부드럽게 이어줍니다.
+smoothed_SOC_1s = linspace(min(SOC1s), max(SOC1s), 100); 
+smoothed_R_1s = spline(SOC1s, R1s, smoothed_SOC_1s); 
 
 smoothed_SOC_10s = linspace(min(SOC10s), max(SOC10s), 100);
 smoothed_R_10s = spline(SOC10s, R10s, smoothed_SOC_10s);
 
-smoothed_SOC_30s = linspace(min(SOC30s), max(SOC30s), 100); % 보다 부드러운 곡선을 위해 임의의 구간을 생성합니다.
-smoothed_R_30s = spline(SOC30s, R30s, smoothed_SOC_30s); % spline 함수를 사용하여 점들을 부드럽게 이어줍니다.
+smoothed_SOC_30s = linspace(min(SOC30s), max(SOC30s), 100); 
+smoothed_R_30s = spline(SOC30s, R30s, smoothed_SOC_30s); 
 
 % 그래프 그리기
 figure;
