@@ -100,21 +100,24 @@ ax3 = subplot(1,3,1);
 for i = 1:length(data)
     if abs(data(i).SOC) < 1e-6 % soc=0
         V_step = data(i).V;
-        plot(data(i).t, V_step, 'b');
+        t_step = data(i).t - data(i).t(1); % Subtract the initial time to start from 0
+        plot(t_step, V_step, 'b');
         hold on;
     end
 end
 xlabel('Time (s)');
 ylabel('Voltage (V)');
 title(ax3, 'Voltage at SOC=0');
+xlim([0 30])
 
 ax4 = subplot(1,3,2);
 for i = 1:length(data)
-    if abs(data(i).SOC - 0.5) < 1e-1 % soc=0.5
+    if abs(data(i).SOC - 0.5) < 10^(-1.5) % soc=0.5
         I_step = data(i).I;
         charge_mask = (I_step > 0);
         V_step = data(i).V;
-        plot(data(i).t(charge_mask), V_step(charge_mask), 'b');
+        t_step = data(i).t - data(i).t(1); % Subtract the initial time to start from 0
+        plot(t_step(charge_mask), V_step(charge_mask), 'b');
         hold on;
     end
 end
@@ -126,12 +129,15 @@ ax5 = subplot(1,3,3);
 for i = 1:length(data)
     if abs(data(i).SOC - 1) < 1e-6 % soc=1
         V_step = data(i).V;
-        plot(data(i).t, V_step, 'b');
+        t_step = data(i).t - data(i).t(1); % Subtract the initial time to start from 0
+        plot(t_step, V_step, 'b');
         hold on;
     end
 end
 xlabel('Time (s)');
 ylabel('Voltage (V)');
 title(ax5, 'Voltage at SOC=1');
+xlim([0 30])
+
 
 
