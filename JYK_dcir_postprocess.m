@@ -4,17 +4,20 @@ clc; clear; close all;
 data_folder = 'C:\Users\deu04\OneDrive\문서\MATLAB\dcir';
 save_path = data_folder;
 I_1C = 0.00382; %[A]
+id_cfa = 1; % 1 for cathode, 2 for fullcell , 3 for anode 
 
 % MAT 파일 가져오기
 slash = filesep;
 files = dir([data_folder slash '*.mat']);
 
-for i = 1:length(files)
-   fullpath_now = [data_folder slash files(i).name];% path for i-th file in the folder
-   load(fullpath_now);
-   data(1)= [];
+% 선택할 파일의 인덱스
+selected_file_index = 2; % 첫 번째 파일 선택
 
-end
+% 선택한 파일 load
+fullpath_now = [data_folder slash files(selected_file_index).name];
+load(fullpath_now);
+data(1) = [];
+
 
 % 충전, 방전 스텝(필드) 구하기 
 
@@ -39,8 +42,8 @@ end
 
 for j = 1:length(data)
      %calculate capacities
-     data(j).Q = trapz(data(j).t,data(j).I)/3600; %[Ah]
-     data(j).cumQ = cumtrapz(data(j).t,data(j).I)/3600; %[Ah]
+     data(j).Q = abs(trapz(data(j).t,data(j).I))/3600; %[Ah]
+     data(j).cumQ = abs(cumtrapz(data(j).t,data(j).I))/3600; %[Ah]
      
 
      % data(j).cumQ = abs(cumtrapz(data(j).t,data(j).I))/3600; %[Ah]
@@ -62,11 +65,13 @@ for i = 1:length(data)
     end
 end
 
-for i = 1 : length(data)
-    data(i).SOC = data(i).cumsumQ/total_QC;
+for i = 1: length(data)
+    if id_cfa == 1 || id_cfa == 2
+        data(i).SOC = data(i).cumsumQ/total_QC;
+    elseif id_cfa == 3
+        data(i).SOC = 1 - data(i).cumsumQ/total_QD;
+    end
 end
-
-
 
 
 % Plot
@@ -82,6 +87,8 @@ end
 xlabel('State of Charge (SOC)');
 ylabel('Voltage (V)');
 title(ax1, 'Voltage vs SOC');
+
+
 
 ax2 = subplot(1,2,2);
 for i = 1:length(data)
@@ -110,11 +117,12 @@ ylabel('Voltage (V)');
 title(ax3, 'Voltage at SOC=0');
 xlim([0 30])
 
+
 ax4 = subplot(1,3,2);
 for i = 1:length(data)
-    if abs(data(i).SOC - 0.5) < 10^(-1.5) % soc=0.5
+    if abs(data(i).SOC - 0.5) < 10^(-1) % soc=0.5
         I_step = data(i).I;
-        charge_mask = (I_step > 0);
+        charge_mask = (I_step < 0);
         V_step = data(i).V;
         t_step = data(i).t - data(i).t(1); % Subtract the initial time to start from 0
         plot(t_step(charge_mask), V_step(charge_mask), 'b');
@@ -124,6 +132,7 @@ end
 xlabel('Time (s)');
 ylabel('Voltage (V)');
 title(ax4, 'Charge Pulse at SOC=0.5');
+xlim([0 30])
 
 ax5 = subplot(1,3,3);
 for i = 1:length(data)
@@ -138,6 +147,5 @@ xlabel('Time (s)');
 ylabel('Voltage (V)');
 title(ax5, 'Voltage at SOC=1');
 xlim([0 30])
-
 
 
