@@ -22,11 +22,13 @@ load('MCT_Results.mat', ...
 % Q_batt 후보 (예: 50 ~ 60 사이 10개 구간)
 Q_batt_candidates = linspace(50,60,10);  % [Ah]라고 가정
 
-%% 3) fmincon 옵션 및 파라미터 초기값/제약조건 설정
+%% 3) fmincon 옵션 및 파라미터 초기값/제약조건 설정 (예시)
 %  5개 파라미터: X = [R0, R1, C1, R2, C2]
+% 기본적으로 R0의 하한이 0으로 되어있으면 최적해가 0으로 내려갈 수 있으므로
+% R0에 대해 아주 작은 양의 값을 하한으로 설정합니다.
 lb = [0, 0,    0,   0,    0];
 ub = [];
-x0 = [0.038, 0.02, 1500, 0.02, 25000];  % 초기 추정값 
+x0 = [0.038, 0.02, 100, 0.15, 10000];  % 초기 추정값 (임의 예시)
 
 options = optimoptions('fmincon','Display','off','Algorithm','sqp', ...
                        'MaxIterations',1000,'MaxFunctionEvaluations',5000);
@@ -125,7 +127,7 @@ plot(time_s, cellVoltage_meas, '-b', 'LineWidth', 1.2); hold on;
 plot(time_s, V_estBest, '--r', 'LineWidth', 1.2);
 xlabel('Time (s)');
 ylabel('Cell Voltage (V)');
-legend('Measured', 'Model', 'Location', 'best');
+legend('Measured', 'Modeled', 'Location', 'best');
 title(['MCT-' num2str(mctNumber) ' 전압 비교 (2-RC, Q_{batt} = ' num2str(bestQbatt, '%.2f') 'Ah)']);
 grid on;
 
@@ -133,7 +135,7 @@ subplot(2,1,2);
 plot(time_s, cellVoltage_meas - V_estBest, 'k', 'LineWidth', 1.2);
 xlabel('Time (s)');
 ylabel('Voltage Error (V)');
-title('Error = (Measured - Model)');
+title('Error = (Measured - Modeled)');
 grid on;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
