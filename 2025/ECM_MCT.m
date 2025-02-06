@@ -1,12 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% MATLAB Script Example with Cell and Table
-%   - MCT-1~6을 순회하며 시트 데이터를 불러와:
-%       1) mctCellData{mctNumber} 에 각 테이블 저장
-%       2) OCVMCT(행,1)는 마지막 rest 전압 OCV-SOC
-%          OCVMCT(행,2)는 CSV(BMS) SOC (table의 두 열)
-%   - 2×2 subplot 그래프를 그리고,
-%     전류 그래프에서 "초기 휴지 상태" 마지막 지점을 빨간 동그라미로 표시
-%   - 마지막으로 OCV 시트 데이터 그래프도 그린다.
+% 코드1 : MCT-1~6 데이터를 불러와 처리하고, mctCellData 및 OCVMCT 등을 저장
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clear; clc; close all;
@@ -17,7 +10,6 @@ filename = 'G:\공유 드라이브\BSL-Data\Data\Hyundai_dataset\현대차파우
 %% 2) OCV 시트 데이터 불러오기 (1회만)
 sheetNameOCV = 'OCV';  % 실제 파일의 OCV 시트 이름
 optsOCV = detectImportOptions(filename, 'Sheet', sheetNameOCV, 'VariableNamingRule','preserve');
-% 예시: OCV 시트에서 A3 셀부터 데이터가 시작된다고 가정
 optsOCV.DataRange = 'A3';
 dataOCV = readtable(filename, optsOCV);
 
@@ -50,9 +42,8 @@ for mctNumber = 1:6
     
     % (2) 시트 데이터 불러오기
     optsMCT = detectImportOptions(filename, 'Sheet', sheetNameMCT, 'VariableNamingRule','preserve');
-    % 예: 5행에 헤더(컬럼명), 6행부터 실제 데이터
-    optsMCT.VariableNamesRange = 'A5:J5';
-    optsMCT.DataRange          = 'A6';
+    optsMCT.VariableNamesRange = 'A5:J5';  % 예: 5행에 헤더(컬럼명)
+    optsMCT.DataRange          = 'A6';     % 예: 6행부터 실제 데이터
     dataMCT = readtable(filename, optsMCT);
     
     % (3) 열 이름 설정 (실제 파일 포맷에 맞게 수정)
@@ -83,7 +74,6 @@ for mctNumber = 1:6
     
     % (6) "초기 휴지 상태" 마지막 인덱스 찾기
     idxRest = find(batteryCurr ~= 0, 1) - 1;
-    
     if isempty(idxRest) || idxRest < 1
         disp(['[MCT-' num2str(mctNumber) '] 초기 휴지 구간이 없거나 예외상황.']);
         idxRest = NaN;
@@ -151,7 +141,6 @@ for mctNumber = 1:6
         % (ii) OCVMCT 테이블에 저장
         OCVMCT.OCV_SoC(mctNumber) = socEstimate;  % 첫 번째 열: OCV 기반 SOC
         OCVMCT.BMS_SoC(mctNumber) = socFromCSV;   % 두 번째 열: BMS SOC
-        
     else
         % 휴지 구간이 없으면 NaN으로 저장
         OCVMCT.OCV_SoC(mctNumber) = NaN;
@@ -184,4 +173,16 @@ grid on;
 sgtitle('OCV Test Data','FontWeight','bold','FontSize',12);
 
 disp('--- 모든 그래프가 표시되었습니다. ---');
+
+%% (10) 최종적으로 mctCellData, OCVMCT, OCV 관련 변수를 저장
+save('MCT_Results.mat', ...
+     'mctCellData', ...     % 1~6번 MCT의 전체 테이블들을 담은 cell
+     'OCVMCT', ...          % Rest 시점 SOC 비교 결과 테이블
+     'dataOCV', ...         % OCV 전체 원본 테이블 (필요하면)
+     'socOCV', ...          % OCV용 SOC 백터
+     'ocvCellVoltage', ...  % OCV용 전압 백터
+     'uSocOCV', ...         % 중복 제거된 SOC
+     'uCellVoltage');       % 중복 제거된 전압
+
+disp('=== MCT_Results.mat 파일로 저장 완료 ===');
 
