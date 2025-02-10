@@ -25,7 +25,7 @@ Q_batt_candidates = linspace(50,60,10);  % [Ah]라고 가정
 %% 3) fmincon 옵션 및 파라미터 초기값/제약조건 설정
 %  5개 파라미터: X = [R0, R1, C1, R2, C2]
 lb = [0, 0,    0,   0,    0];
-ub = [];
+ub = [inf, inf ,inf, inf, inf];
 x0 = [0.038, 0.02, 1500, 0.02, 25000];  % 초기 추정값 
 
 options = optimoptions('fmincon','Display','off','Algorithm','sqp', ...
