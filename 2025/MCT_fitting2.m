@@ -17,12 +17,12 @@ Q_batt_candidates = 56.2396;  % 예: linspace(50,60,10);
 
 %% 3) fmincon 옵션 및 파라미터 초기값/제약조건 설정
 %  3개 파라미터: X = [R0, R1, tau1]
-x0 = [0.001,  ... R0 초기값
-      0.0005, ... R1 초기값
-      180];    ... tau1 초기값
+x0 = [0.0011,  ... R0 초기값
+      0.0010, ... R1 초기값
+      36];    ... tau1 초기값
 
-lb = [0, 0, 10];
-ub = [inf, inf, 180];
+lb = [0, 0, 0];
+ub = [inf, inf, 108];
 
 options = optimoptions('fmincon','Display','off','Algorithm','sqp', ...
                        'MaxIterations',1000,'MaxFunctionEvaluations',5000);
