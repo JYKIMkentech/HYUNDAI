@@ -1,8 +1,7 @@
-%% script_2RC_TauSurface.m
+%% script_2RC_TauSurface_paramArray.m
 % (목적) tau1, tau2를 격자(grid)로 고정하고, R0,R1,R2만 최적화하여 RMSE를 계산
 %        -> (tau1, tau2) 에 대한 Cost(RMSE) Surface를 그림
-%
-%  추가사항: tau1=6, tau2=30 (초기 추정) 지점도 결과에 표시
+%        -> paramArray에 초기값, 최적화값, RMSE 등을 모두 저장
 
 clear; clc; close all;
 
@@ -19,7 +18,8 @@ load('MCT_Results.mat', ...
 Q_batt = 56.2396;  
 
 %% 4) fmincon 옵션 설정 (R0,R1,R2만 최적화)
-x0 = [0.001, 0.0005, 0.0005];  % 초기값 [R0, R1, R2]
+%    --> 여기서 x0(1)=R0, x0(2)=R1, x0(3)=R2가 초기값
+x0 = [0.001, 0.0005, 0.0005];  % 초기 guess [R0, R1, R2]
 lb = [0, 0, 0];
 ub = [inf, inf, inf];
 
@@ -49,14 +49,15 @@ charge_integral = cumtrapz(time_s, cellCurrent);  % [A·s]
 SOC_t = SOC0 - (charge_integral / (Q_batt*3600))*100;  % [%]
 
 %% 7) tau1, tau2 격자 생성
-tau1_candidates = linspace(0.1, 10, 21);   % (예) 0.1~10 범위
-tau2_candidates = linspace(20, 80, 21);   % (예) 20~80 범위
+tau1_candidates = linspace(0.1, 10, 21);   % (예) 0.1 ~ 10, 총 21점
+tau2_candidates = linspace(20, 80, 21);   % (예) 20 ~ 80, 총 21점
 
-% costSurface(i,j) = RMSE at tau1_candidates(i), tau2_candidates(j)
+% costSurface(i,j) = RMSE at (tau1_candidates(i), tau2_candidates(j))
 costSurface = zeros(length(tau1_candidates), length(tau2_candidates));
 
-% (옵션) 각 (i,j)에 대해 최적화된 [R0,R1,R2]도 저장
-paramSurface = zeros(length(tau1_candidates), length(tau2_candidates), 3);
+% === (중요) paramArray에 [초기 R0,R1,R2, 초기 tau1,tau2, 최적 R0,R1,R2, 최적 tau1,tau2, RMSE] 저장 ===
+% 크기: (길이(tau1_candidates), 길이(tau2_candidates), 11)
+paramArray = zeros(length(tau1_candidates), length(tau2_candidates), 11);
 
 %% 8) 2중 for문으로 tau1, tau2 고정 후 R0,R1,R2 최적화
 for i = 1:length(tau1_candidates)
@@ -65,7 +66,7 @@ for i = 1:length(tau1_candidates)
         tau2_now = tau2_candidates(j);
 
         % costFunc 정의 (R0,R1,R2만 최적화)
-        costFunc = @(x) computeRMSE_2RC_3param(...
+        costFunc = @(x) computeRMSE_2RC_3param(... 
             x, tau1_now, tau2_now, ...
             SOC_t, cellCurrent, dt, ...
             cellVoltage_meas, socOCV, ocvCellVoltage);
@@ -76,8 +77,19 @@ for i = 1:length(tau1_candidates)
         % RMSE (cost)
         costSurface(i,j) = fVal;
 
-        % 최적화된 파라미터 저장
-        paramSurface(i,j,:) = xOpt;
+        % ===== paramArray에 저장 =====
+        % 1) 초기 R0, 2) 초기 R1, 3) 초기 R2
+        % 4) 초기 tau1(= tau1_now), 5) 초기 tau2(= tau2_now)
+        % 6) 피팅된 R0(xOpt(1)), 7) 피팅된 R1(xOpt(2)), 8) 피팅된 R2(xOpt(3))
+        % 9) 피팅된 tau1(= tau1_now 고정), 10) 피팅된 tau2(= tau2_now 고정)
+        % 11) RMSE
+        paramArray(i,j,:) = [ ...
+            x0(1), x0(2), x0(3), ...
+            tau1_now, tau2_now, ...
+            xOpt(1), xOpt(2), xOpt(3), ...
+            tau1_now, tau2_now, ...
+            fVal ...
+        ];
     end
 end
 
@@ -85,18 +97,21 @@ end
 [bestRMSE, idxMin] = min(costSurface(:));
 [best_i, best_j]   = ind2sub(size(costSurface), idxMin);
 
-best_tau1 = tau1_candidates(best_i);
-best_tau2 = tau2_candidates(best_j);
-bestParams = squeeze(paramSurface(best_i, best_j, :));  % [R0,R1,R2]
+best_tau1  = tau1_candidates(best_i);
+best_tau2  = tau2_candidates(best_j);
+
+% paramArray에서 최적화된 R0,R1,R2 뽑아오기
+best_R0 = paramArray(best_i, best_j, 6); 
+best_R1 = paramArray(best_i, best_j, 7);
+best_R2 = paramArray(best_i, best_j, 8);
 
 fprintf('\n=== Best RMSE = %.4f ===\n', bestRMSE);
 fprintf('   tau1* = %.3f, tau2* = %.3f\n', best_tau1, best_tau2);
-fprintf('   [R0,R1,R2] = [%.4f, %.4f, %.4f]\n', ...
-    bestParams(1), bestParams(2), bestParams(3));
+fprintf('   [R0,R1,R2] = [%.4f, %.4f, %.4f]\n', best_R0, best_R1, best_R2);
 
 %% [추가] 사용자 정의 "초기 추정" (tau1_init, tau2_init)에 대한 결과 확인
-tau1_init = 6;  % 예: 6초
-tau2_init = 30; % 예: 30초
+tau1_init = 6;   % 예: 6초
+tau2_init = 30;  % 예: 30초
 
 % (1) 격자 중에서 init값과 가장 가까운 인덱스 찾기
 [~, idx_i_guess] = min(abs(tau1_candidates - tau1_init));
@@ -104,16 +119,19 @@ tau2_init = 30; % 예: 30초
 
 % (2) 해당 인덱스에서의 RMSE 및 (R0,R1,R2)
 costAtGuess  = costSurface(idx_i_guess, idx_j_guess);
-paramAtGuess = squeeze(paramSurface(idx_i_guess, idx_j_guess, :));  % [R0,R1,R2]
+
+% paramArray에서 R0,R1,R2 가져오기
+paramAtGuess = squeeze(paramArray(idx_i_guess, idx_j_guess, :));  
+% -> [initR0, initR1, initR2, initTau1, initTau2, optR0, optR1, optR2, optTau1, optTau2, RMSE]
 
 fprintf('\n--- [Initial guess] tau1=%.2f, tau2=%.2f ---\n', tau1_init, tau2_init);
 fprintf('    -> RMSE = %.4f\n', costAtGuess);
 fprintf('    -> [R0,R1,R2] = [%.4f, %.4f, %.4f]\n', ...
-    paramAtGuess(1), paramAtGuess(2), paramAtGuess(3));
+    paramAtGuess(6), paramAtGuess(7), paramAtGuess(8));
 
 %% 10) Surf 그래프 (3D) 그리기 + 최솟값 지점, 초기 추정 지점 표시
 [T1, T2] = meshgrid(tau2_candidates, tau1_candidates);  
-% ※ surf() 시 X->열방향, Y->행방향 순으로 T1,T2를 meshgrid로 생성(주의)
+% ※ surf() 시 X->열방향(tau2), Y->행방향(tau1) 순서이므로 주의
 
 figure('Name','RMSE Surface','NumberTitle','off');
 surfH = surf(T1, T2, costSurface, ...
@@ -158,7 +176,6 @@ colorbar; grid on;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% (아래는 로컬 함수 정의부)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 function cost = computeRMSE_2RC_3param(x, tau1, tau2, ...
                                        SOC_t, I_cell, dt, ...
                                        V_meas, socOCV, ocvCellVoltage)

@@ -1,19 +1,14 @@
-%% script_1RC_TauSurface.m
-% (목적) tau1를 격자(grid)로 고정하고, R0, R1만 최적화하여 RMSE를 계산
-%        -> (tau1)에 대한 Cost(RMSE) 곡선을 그림
-
-clear; clc; close all;
+clc;clear;close all;
 
 %% 1) 사용자 입력 (MCT 번호)
 mctNumber = input('피팅할 MCT 번호를 입력하세요 (1~6): ');
 
 %% 2) 코드1에서 저장한 결과 불러오기
-%    (mctCellData{mctNumber} 안에 Time_s, PackVoltage_V, Current_A 등의 필드가 있다고 가정)
 load('MCT_Results.mat', ...
      'mctCellData','OCVMCT','dataOCV', ...
      'socOCV','ocvCellVoltage','uSocOCV','uCellVoltage');
 
-%% 3) 사용할 배터리 총용량 (예: Q_batt = 56.2396 [Ah])
+%% 3) 사용할 배터리 총용량
 Q_batt = 56.2396;  
 
 %% 4) fmincon 옵션 설정 (R0,R1만 최적화)
@@ -36,25 +31,22 @@ cellVoltage_meas = packVoltage / 192;  % 셀 전압
 cellCurrent      = packCurrent / 2;    % 셀 전류
 
 %% 6) 초기 SOC 계산
-% 첫 몇 개 샘플 평균 전압 -> 이를 OCV 테이블 기반 보간
 cellVoltage_init = mean(cellVoltage_meas(1:5));  
 SOC0 = interp1(ocvCellVoltage, socOCV, cellVoltage_init, 'linear', 'extrap');
 
-% 시계열 간격
 dt = [0; diff(time_s)];
 
-% 시계열 SOC(t) 계산
 charge_integral = cumtrapz(time_s, cellCurrent);  % [A·s]
 SOC_t = SOC0 - (charge_integral / (Q_batt*3600))*100;  % [%]
 
-%% 7) tau1 후보군 생성 (0부터 20까지 총 21개)
+%% 7) tau1 후보군 생성
 tau1_candidates = linspace(0, 50, 51);
 
 % costArray(i) = RMSE at tau1_candidates(i)
 costArray = zeros(length(tau1_candidates), 1);
 
-% (옵션) 각 tau1에 대해 최적화된 [R0,R1]도 저장
-paramArray = zeros(length(tau1_candidates), 2);
+% (중요) 각 tau1마다 [초기 R0, 초기 R1, 초기 tau1, 최적 R0, 최적 R1, 최적 tau1, RMSE]을 저장
+paramArray = zeros(length(tau1_candidates), 7);
 
 %% 8) for문으로 tau1 고정 후 R0,R1 최적화
 for i = 1:length(tau1_candidates)
@@ -72,18 +64,21 @@ for i = 1:length(tau1_candidates)
     % RMSE (cost)
     costArray(i) = fVal;
 
-    % 최적화된 파라미터 저장
-    paramArray(i,:) = xOpt;
+    % (중요) paramArray에 7개 정보를 저장
+    % 1) 초기 R0, 2) 초기 R1, 3) 초기 tau1,
+    % 4) 피팅된 R0(xOpt(1)), 5) 피팅된 R1(xOpt(2)), 6) 피팅된 tau1(=tau1_now), 7) RMSE
+    paramArray(i,:) = [x0(1), x0(2), tau1_now, xOpt(1), xOpt(2), tau1_now, fVal];
 end
 
 %% 9) costArray에서 최소값 찾기
 [bestRMSE, idxMin] = min(costArray);
 best_tau1 = tau1_candidates(idxMin);
-best_R0R1 = paramArray(idxMin, :);  % [R0, R1]
+best_R0   = paramArray(idxMin, 4);
+best_R1   = paramArray(idxMin, 5);
 
 fprintf('\n=== Best RMSE = %.4f ===\n', bestRMSE);
 fprintf('   tau1* = %.3f\n', best_tau1);
-fprintf('   [R0,R1] = [%.4f, %.4f]\n', best_R0R1(1), best_R0R1(2));
+fprintf('   [R0,R1] = [%.4f, %.4f]\n', best_R0, best_R1);
 
 %% 10) RMSE vs tau1 플롯
 figure('Name','RMSE vs. tau1','NumberTitle','off');
@@ -103,7 +98,6 @@ legend('RMSE','Minimum RMSE','Location','best');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% (아래는 로컬 함수 정의부)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 function cost = computeRMSE_1RC_2param(x, tau1, ...
                                        SOC_t, I_cell, dt, ...
                                        V_meas, socOCV, ocvCellVoltage)
@@ -146,3 +140,4 @@ function V_est = modelVoltage_1RC_2param(R0, R1, tau1, ...
         V_est(k) = OCV_now - IR0 - Vrc;
     end
 end
+

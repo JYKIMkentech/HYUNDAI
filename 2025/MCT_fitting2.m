@@ -1,5 +1,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % [전체 코드 예시 - 1 RC 버전 (전류표시, 색상지정, TITLE 주석, 30s/100s 줌인)]
+% 축 색상 변경: 8), 9), 10)번 플롯에 yyaxis left => 빨간색, yyaxis right => 파란색
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clear; clc; close all;
@@ -17,8 +18,8 @@ Q_batt_candidates = 56.2396;  % 예: linspace(50,60,10);
 
 %% 3) fmincon 옵션 및 파라미터 초기값/제약조건 설정
 %  3개 파라미터: X = [R0, R1, tau1]
-x0 = [0.0011,  ... R0 초기값
-      0.0010, ... R1 초기값
+x0 = [0.001,  ... R0 초기값
+      0.0005, ... R1 초기값
       36];    ... tau1 초기값
 
 lb = [0, 0, 0];
@@ -121,9 +122,17 @@ plot(time_s, cellVoltage_meas, 'Color', c(2,:), 'LineWidth', 1.2); hold on;
 plot(time_s, V_estBest,        'Color', c(3,:), 'LineWidth', 1.2);
 ylabel('Cell Voltage (V)');
 
+% 왼쪽 축 색상: 빨간색
+ax = gca;
+ax.YColor = 'r';
+
 yyaxis right
 plot(time_s, cellCurrent,      'Color', c(1,:), 'LineWidth', 1.2);
 ylabel('Cell Current (A)');
+
+% 오른쪽 축 색상: 파란색
+ax = gca;
+ax.YColor = 'b';
 
 legend('V_{data}','V_{model}','I_{data}','Location','best');
 xlabel('Time (s)');
@@ -162,9 +171,17 @@ for iWin = 1:numWindows30
     plot(time_s(idx), V_estBest(idx),        'Color', c_local(3,:), 'LineWidth', 1.2);
     ylabel('Cell Voltage (V)');
 
+    % 왼쪽 축 색상: 빨간색
+    ax = gca;
+    ax.YColor = 'r';
+
     yyaxis right
     plot(time_s(idx), cellCurrent(idx),      'Color', c_local(1,:), 'LineWidth', 1.2);
     ylabel('Cell Current (A)');
+
+    % 오른쪽 축 색상: 파란색
+    ax = gca;
+    ax.YColor = 'b';
 
     legend('V_{data}','V_{model}','I_{data}','Location','best');
     xlabel('Time (s)');
@@ -202,9 +219,17 @@ for iWin = 1:numWindows300
     plot(time_s(idx), V_estBest(idx),        'Color', c_local(3,:), 'LineWidth', 1.2);
     ylabel('Cell Voltage (V)');
 
+    % 왼쪽 축 색상: 빨간색
+    ax = gca;
+    ax.YColor = 'r';
+
     yyaxis right
     plot(time_s(idx), cellCurrent(idx),      'Color', c_local(1,:), 'LineWidth', 1.2);
     ylabel('Cell Current (A)');
+
+    % 오른쪽 축 색상: 파란색
+    ax = gca;
+    ax.YColor = 'b';
 
     legend('V_{data}','V_{model}','I_{data}','Location','best');
     xlabel('Time (s)');
@@ -222,7 +247,7 @@ end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% (아래는 로컬 함수 정의부) 
+%% (아래는 로컬 함수 정의부)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function cost = computeRMSE_1RC_tau(X, SOC_t, I_cell, dt, V_meas, socOCV, ocvCellVoltage)

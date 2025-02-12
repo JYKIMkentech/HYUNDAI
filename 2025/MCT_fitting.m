@@ -1,3 +1,6 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% [전체 코드 예시 - 2 RC 버전 (축색상 변경, 30s/100s 줌인)]
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clear; clc; close all;
 
@@ -17,11 +20,11 @@ Q_batt_candidates = 56.2396;  % [Ah]라고 가정
 x0 = [0.001,  ... R0
       0.0005, ... R1
       0.0005, ... R2
-      6.04,       ... tau1
-      65];     ... tau2
+      6.04,   ... tau1
+      65];    ... tau2
 
 lb = [0, 0, 0, 0, 10];
-ub = [inf, inf, inf, 6, 180];
+ub = [inf, inf, inf, 18.12, 195];
 
 options = optimoptions('fmincon','Display','off','Algorithm','sqp', ...
                        'MaxIterations',1000,'MaxFunctionEvaluations',5000);
@@ -54,7 +57,6 @@ for iQ = 1:length(Q_batt_candidates)
     Qbatt = Q_batt_candidates(iQ);  % [Ah]
     
     % (A) SOC(t) 계산
-    %     cellCurrent가 +면 방전
     charge_integral = cumtrapz(time_s, cellCurrent); % [A·s]
     SOC_t = SOC0 - (charge_integral / (Qbatt * 3600)) * 100;
     
@@ -89,12 +91,13 @@ fprintf('    (R0 = %.4f, R1 = %.4f, R2 = %.4f, tau1 = %.1f, tau2 = %.1f)\n', ...
 FittingResult = table(Q_batt_candidates(:), rmseArray, ...
                      paramArray(:, 1), paramArray(:, 2), paramArray(:, 3), ...
                      paramArray(:, 4), paramArray(:, 5), ...
-                     'VariableNames', {'Q_batt', 'RMSE', 'R0', 'R1', 'R2', 'tau1', 'tau2'});
+   'VariableNames', {'Q_batt', 'RMSE', 'R0', 'R1', 'R2', 'tau1', 'tau2'});
 disp('--- FittingResult Table ---');
 disp(FittingResult);
 
 %% 7) Q_batt vs RMSE 플롯
-figure('Name', ['MCT-' num2str(mctNumber) ' : RMSE vs Q_batt (2-RC)'], 'NumberTitle', 'off');
+figure('Name', ['MCT-' num2str(mctNumber) ' : RMSE vs Q_batt (2-RC)'], ...
+       'NumberTitle', 'off');
 plot(Q_batt_candidates, rmseArray, 'o--', 'LineWidth', 1.2); hold on;
 plot(bestQbatt, bestRMSE, 'r*', 'MarkerSize', 8, 'LineWidth', 1.5);
 xlabel('Q_{batt} [Ah]');
@@ -110,7 +113,7 @@ SOC_t_best = SOC0 - (charge_integral_best / (bestQbatt * 3600)) * 100;
 % 모델 전압 계산
 V_estBest = modelVoltage_2RC_tau(bestParams, SOC_t_best, cellCurrent, dt, socOCV, ocvCellVoltage);
 
-% 색상 정의 (lines(3)는 예시, 필요시 더 늘릴 수 있음)
+% 색상 정의
 c = lines(3);
 
 figure('Name', ['MCT-' num2str(mctNumber) ' : Voltage & Current (2-RC)'], ...
@@ -123,14 +126,22 @@ plot(time_s, cellVoltage_meas, 'Color', c(2,:), 'LineWidth', 1.2); hold on;
 plot(time_s, V_estBest,        'Color', c(3,:), 'LineWidth', 1.2);
 ylabel('Cell Voltage (V)');
 
+% 왼쪽 축 색상: 빨간색
+ax = gca;
+ax.YColor = 'r';
+
 yyaxis right
 plot(time_s, cellCurrent, 'Color', c(1,:), 'LineWidth', 1.2);
 ylabel('Cell Current (A)');
 
+% 오른쪽 축 색상: 파란색
+ax = gca;
+ax.YColor = 'b';
+
 legend('V_{data}','V_{model}','I_{data}','Location','best');
 xlabel('Time (s)');
-%title(['MCT-' num2str(mctNumber) ...
-      % ' : Voltage & Current (Q_{batt} = ' num2str(bestQbatt,'%.2f') 'Ah)']);
+% title(['MCT-' num2str(mctNumber) ...
+%       ' : Voltage & Current (Q_{batt} = ' num2str(bestQbatt,'%.2f') 'Ah)']);
 grid on;
 
 % (하단 Subplot) 전압 오차
@@ -138,7 +149,7 @@ subplot(2,1,2);
 plot(time_s, cellVoltage_meas - V_estBest, 'k', 'LineWidth', 1.2);
 xlabel('Time (s)');
 ylabel('Voltage Error (V)');
-%title('Error = (Measured - Model)');
+% title('Error = (Measured - Model)');
 grid on;
 
 %% 9) 30초 간격으로 잘라서 여러 개 플롯 (Zoom In)
@@ -155,7 +166,6 @@ for iWin = 1:numWindows30
         ' (' num2str(tStart) 's ~ ' num2str(tEnd) 's)'], ...
         'NumberTitle', 'off');
     
-    % 색상 재사용
     c_local = lines(3);
     
     % 전압+전류
@@ -165,13 +175,21 @@ for iWin = 1:numWindows30
     plot(time_s(idx), V_estBest(idx),        'Color', c_local(3,:), 'LineWidth', 1.2);
     ylabel('Cell Voltage (V)');
 
+    % 왼쪽 축 색상: 빨간색
+    ax = gca;
+    ax.YColor = 'r';
+
     yyaxis right
     plot(time_s(idx), cellCurrent(idx),      'Color', c_local(1,:), 'LineWidth', 1.2);
     ylabel('Cell Current (A)');
 
+    % 오른쪽 축 색상: 파란색
+    ax = gca;
+    ax.YColor = 'b';
+
     legend('V_{data}','V_{model}','I_{data}','Location','best');
     xlabel('Time (s)');
-    %title(['전압+전류 (30s 구간 #' num2str(iWin) ')']);
+    % title(['전압+전류 (30s 구간 #' num2str(iWin) ')']);
     grid on;
     
     % 에러
@@ -179,7 +197,7 @@ for iWin = 1:numWindows30
     plot(time_s(idx), cellVoltage_meas(idx) - V_estBest(idx), 'k', 'LineWidth', 1.2);
     xlabel('Time (s)');
     ylabel('Voltage Error (V)');
-    %title('Error = (Measured - Model)');
+    % title('Error = (Measured - Model)');
     grid on;
 end
 
@@ -206,13 +224,21 @@ for iWin = 1:numWindows300
     plot(time_s(idx), V_estBest(idx),        'Color', c_local(3,:), 'LineWidth', 1.2);
     ylabel('Cell Voltage (V)');
 
+    % 왼쪽 축 색상: 빨간색
+    ax = gca;
+    ax.YColor = 'r';
+
     yyaxis right
     plot(time_s(idx), cellCurrent(idx),      'Color', c_local(1,:), 'LineWidth', 1.2);
     ylabel('Cell Current (A)');
 
+    % 오른쪽 축 색상: 파란색
+    ax = gca;
+    ax.YColor = 'b';
+
     legend('V_{data}','V_{model}','I_{data}','Location','best');
     xlabel('Time (s)');
-    %title(['전압+전류 (100s 구간 #' num2str(iWin) ')']);
+    % title(['전압+전류 (100s 구간 #' num2str(iWin) ')']);
     grid on;
     
     % 에러
@@ -220,7 +246,7 @@ for iWin = 1:numWindows300
     plot(time_s(idx), cellVoltage_meas(idx) - V_estBest(idx), 'k', 'LineWidth', 1.2);
     xlabel('Time (s)');
     ylabel('Voltage Error (V)');
-    %title('Error = (Measured - Model)');
+    % title('Error = (Measured - Model)');
     grid on;
 end
 
