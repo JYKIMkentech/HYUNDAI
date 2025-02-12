@@ -2,8 +2,8 @@
 % 코드 : MCT-1~6 데이터를 불러와 처리
 %        1) OCV 시트 로드 및 중복 제거
 %        2) MCT-1~6 각 시트에서 초기 Rest(휴지) 지점 탐색
-%        3) MCT-1에 대해서 Coulomb Counting으로 SOC 그래프 추가
-%        4) 결과 mctCellData, OCVMCT, etc. 저장
+%        3) MCT-1일 경우, Time vs SOC 그래프에 BMS SOC & Coulomb Counting SOC를 겹쳐 그림
+%        4) 결과 mctCellData, OCVMCT 등 저장
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clear; clc; close all;
@@ -13,7 +13,8 @@ filename = 'G:\공유 드라이브\BSL-Data\Data\Hyundai_dataset\현대차파우
 
 %% 2) OCV 시트 데이터 불러오기 (1회만)
 sheetNameOCV = 'OCV';  % 실제 파일의 OCV 시트 이름
-optsOCV = detectImportOptions(filename, 'Sheet', sheetNameOCV, 'VariableNamingRule','preserve');
+optsOCV = detectImportOptions(filename, 'Sheet', sheetNameOCV, ...
+                              'VariableNamingRule','preserve');
 optsOCV.DataRange = 'A3';
 dataOCV = readtable(filename, optsOCV);
 
@@ -45,7 +46,8 @@ for mctNumber = 1:6
     sheetNameMCT = ['MCT-' num2str(mctNumber)];
     
     % (2) 시트 데이터 불러오기
-    optsMCT = detectImportOptions(filename, 'Sheet', sheetNameMCT, 'VariableNamingRule','preserve');
+    optsMCT = detectImportOptions(filename, 'Sheet', sheetNameMCT, ...
+                                  'VariableNamingRule','preserve');
     optsMCT.VariableNamesRange = 'A5:J5';  % 예: 5행에 헤더(컬럼명)
     optsMCT.DataRange          = 'A6';     % 예: 6행부터 실제 데이터
     dataMCT = readtable(filename, optsMCT);
@@ -83,10 +85,10 @@ for mctNumber = 1:6
         idxRest = NaN;
     end
     
-    %% (7) 기본 그래프(2×2 서브플롯) 그리기
+    %% (7) 2×2 서브플롯(하나의 figure)에 데이터 표시
     figure('Name',['MCT-' num2str(mctNumber) ' Data Plots'],'NumberTitle','off');
     
-    % (a) Time vs Speed
+    % (a) Time vs Speed (subplot(2,2,1))
     subplot(2,2,1);
     plot(time, speed, 'LineWidth', 1.2);
     xlabel('Time (s)');
@@ -94,7 +96,7 @@ for mctNumber = 1:6
     title('Time vs Speed');
     grid on;
     
-    % (b) Time vs Current
+    % (b) Time vs Current (subplot(2,2,2))
     subplot(2,2,2);
     plot(time, batteryCurr, 'LineWidth', 1.2, 'Color','r');
     hold on;
@@ -107,7 +109,7 @@ for mctNumber = 1:6
     title('Time vs Current');
     grid on;
     
-    % (c) Time vs Pack Voltage
+    % (c) Time vs Pack Voltage (subplot(2,2,3))
     subplot(2,2,3);
     plot(time, packVoltage, 'LineWidth', 1.2, 'Color','b');
     xlabel('Time (s)');
@@ -115,26 +117,29 @@ for mctNumber = 1:6
     title('Time vs Pack Voltage');
     grid on;
     
-    % (d) Time vs SOC
+    % (d) Time vs SOC (subplot(2,2,4))
     subplot(2,2,4);
-    plot(time, socMCT, 'LineWidth', 1.2, 'Color','k');
+    hold on;
     xlabel('Time (s)');
     ylabel('SOC (%)');
     title('Time vs SOC');
     grid on;
-    
-    sgtitle(['MCT-' num2str(mctNumber) ' Driving Cycle Data'],...
-            'FontWeight','bold','FontSize',12);
-    
-    %% (8) Rest 지점의 CellVoltMax_V를 이용한 SOC 역추적(OCV) 및 비교
+
+    % 일단 BMS SOC (항상 표시)
+    hBMS = plot(time, socMCT, 'LineWidth', 1.2, ...
+                'Color',[0,0.45,0.74], ...  % (MATLAB 기본 파랑계열)
+                'DisplayName','BMS SOC');
+            
+    %% (8) Rest 지점 전압 → OCV SOC 역추적 & Coulomb Counting
     if ~isnan(idxRest)
         restVoltage = cellVoltMax(idxRest);
         
-        % 보간으로 SOC 추정 (OCV 기반)
-        socEstimate = interp1(uCellVoltage, uSocOCV, restVoltage, 'linear', 'extrap');
-        socFromCSV  = socMCT(idxRest);
+        % OCV로부터 SOC 추정
+        socEstimate = interp1(uCellVoltage, uSocOCV, restVoltage,...
+                              'linear','extrap');
+        socFromCSV = socMCT(idxRest);
         
-        % (i) 결과 콘솔 출력
+        % 결과 콘솔 출력
         fprintf('\n[MCT-%d]\n', mctNumber);
         fprintf('  - 초기 휴지 구간 마지막 인덱스: %d\n', idxRest);
         fprintf('  - 해당 시점 CellVoltMax_V: %.4f V\n', restVoltage);
@@ -142,52 +147,53 @@ for mctNumber = 1:6
         fprintf('  - CSV 기록 SOC: %.2f %%\n', socFromCSV);
         fprintf('  => 차이: %.2f %%p\n', socEstimate - socFromCSV);
         
-        % (ii) OCVMCT 테이블에 저장
-        OCVMCT.OCV_SoC(mctNumber) = socEstimate;  % 첫 번째 열: OCV 기반 SOC
-        OCVMCT.BMS_SoC(mctNumber) = socFromCSV;   % 두 번째 열: BMS SOC
+        % OCVMCT 테이블에 저장
+        OCVMCT.OCV_SoC(mctNumber) = socEstimate;  
+        OCVMCT.BMS_SoC(mctNumber) = socFromCSV;   
         
-        % (iii) MCT-1의 경우 쿨롱 카운팅(Coulomb Counting) 계산 및 비교
+        % MCT-1일 때만 Coulomb Counting 수행 + 같이 플롯
         if mctNumber == 1
-            % (a) 셀 정격 용량 (예시 값, 실제로 수정 필요)
+            % 예: 정격용량(실제 용량에 맞춰 수정)
             capacityAh = 42;  
             
-            % (b) 쿨롱카운팅용 SOC 벡터 초기화
+            % coulombSoc 초기화
             coulombSoc = zeros(size(time));
             
-            % 초기 구간(1 ~ idxRest)까지 모두 OCV 기반 SOC로 설정
+            % Rest 구간 전까지 OCV 기반 SOC로 채우기
             coulombSoc(1 : idxRest) = socEstimate;
             
-            % (c) 시간 간격 (초 단위)
+            % 시간 간격 계산
             dt_sec = diff(time);
             
-            % (d) idxRest+1부터 쿨롱 카운팅 적분
+            % idxRest+1부터 적분
             for k = (idxRest+1) : length(time)
-                dt = dt_sec(k-1);      % [s]
-                I  = batteryCurr(k-1); % [A]
+                dt = dt_sec(k-1);
+                I  = batteryCurr(k-1);  % [A]
                 
-                % 방전 전류(+) → SOC 감소 (가정)
-                dAh = I * (dt / 3600);          % [Ah]
+                % 방전 전류(+)라고 가정 → SOC 감소
+                dAh = I * (dt / 3600);
                 coulombSoc(k) = coulombSoc(k-1) - (dAh / capacityAh)*100;
             end
             
-            % (e) 쿨롱 카운팅 결과 그래프
-            figure('Name','MCT-1 SOC Comparison','NumberTitle','off');
-            plot(time, socMCT,'LineWidth',1.2,'DisplayName','BMS SOC'); 
-            hold on;
-            plot(time, coulombSoc,'LineWidth',1.2,'DisplayName','Coulomb Counting SOC');
-            xlabel('Time (s)');
-            ylabel('SOC (%)');
-            grid on; 
-            legend('Location','best');
-            title('SOC Comparison for MCT-1');
+            % (d) 동일 subplot(2,2,4)에 Coulomb Counting SOC 추가로 그리기
+            hOCV = plot(time, coulombSoc, 'LineWidth', 1.2, ...
+                        'Color',[0.85,0.33,0.10], ...  % (MATLAB 기본 오렌지계열)
+                        'DisplayName','CC SOC');
+            box on;
         end
         
     else
-        % 휴지 구간이 없으면 NaN으로 저장
+        % 휴지 구간이 없으면 NaN
         OCVMCT.OCV_SoC(mctNumber) = NaN;
         OCVMCT.BMS_SoC(mctNumber) = NaN;
     end
     
+    % 범례 ( subplot(2,2,4) 내에서 표시 )
+    legend('Location','best');
+    
+    % figure 제목
+    sgtitle(['MCT-' num2str(mctNumber) ' Driving Cycle Data'], ...
+             'FontWeight','bold','FontSize',12);
 end
 
 disp('=== 모든 MCT 시트 데이터 처리 및 그래프 그리기 완료 ===');
@@ -227,5 +233,4 @@ save('MCT_Results.mat', ...
      'uCellVoltage');       % 중복 제거된 전압
 
 disp('=== MCT_Results.mat 파일로 저장 완료 ===');
-
 
