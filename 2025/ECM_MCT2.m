@@ -153,8 +153,8 @@ for mctNumber = 1:6
         
         % MCT-1일 때만 Coulomb Counting 수행 + 같이 플롯
         if mctNumber == 1
-            % 예: 정격용량(실제 용량에 맞춰 수정)
-            capacityAh = 42;  
+            
+            capacityAh = 56.2396;  
             
             % coulombSoc 초기화
             coulombSoc = zeros(size(time));

@@ -20,10 +20,10 @@ Q_batt_candidates = 56.2396;  % 예: linspace(50,60,10);
 %  3개 파라미터: X = [R0, R1, tau1]
 x0 = [0.001,  ... R0 초기값
       0.0005, ... R1 초기값
-      36];    ... tau1 초기값
+      100];    ... tau1 초기값
 
 lb = [0, 0, 0];
-ub = [inf, inf, 108];
+ub = [inf, inf, 300];
 
 options = optimoptions('fmincon','Display','off','Algorithm','sqp', ...
                        'MaxIterations',1000,'MaxFunctionEvaluations',5000);
@@ -42,7 +42,25 @@ cellVoltage_meas = packVoltage / 192;
 cellCurrent = packCurrent / 2;
 
 %% (중요) 초기 SOC 계산 (OCV 테이블 기반 보간)
-cellVoltage_init = mean(cellVoltage_meas(1:5));  
+idx_firstNonZero = find(cellCurrent ~= 0, 1, 'first');
+
+if isempty(idx_firstNonZero)
+    % 전 구간 전류가 0이면 맨 처음(또는 맨 끝)을 택해도 되지만,
+    % 여기서는 맨 앞 인덱스로 설정
+    idx_init = 1;
+    warning('cellCurrent가 전체 구간에서 0입니다. 초기 인덱스를 1로 설정했습니다.');
+else
+    % '처음으로 전류가 0이 아닌' 바로 이전 인덱스가 초기 구간의 마지막
+    idx_init = idx_firstNonZero - 1;
+    if idx_init < 1
+        % 혹시 첫 샘플부터 전류가 0이 아닌 경우 예외처리
+        idx_init = 1;
+        warning('전류가 첫 지점부터 0이 아니므로, 초기 인덱스를 1로 설정했습니다.');
+    end
+end
+
+% 초기 전압 및 초기 SOC
+cellVoltage_init = cellVoltage_meas(idx_init);
 SOC0 = interp1(ocvCellVoltage, socOCV, cellVoltage_init, 'linear', 'extrap');
 
 % 시계열 간격

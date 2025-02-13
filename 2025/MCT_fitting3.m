@@ -38,7 +38,25 @@ cellVoltage_meas = packVoltage / 192;  % 셀 전압
 cellCurrent      = packCurrent / 2;    % 셀 전류
 
 %% 6) 초기 SOC 계산
-cellVoltage_init = mean(cellVoltage_meas(1:5));  
+idx_firstNonZero = find(cellCurrent ~= 0, 1, 'first');
+
+if isempty(idx_firstNonZero)
+    % 전 구간 전류가 0이면 맨 처음(또는 맨 끝)을 택해도 되지만,
+    % 여기서는 맨 앞 인덱스로 설정
+    idx_init = 1;
+    warning('cellCurrent가 전체 구간에서 0입니다. 초기 인덱스를 1로 설정했습니다.');
+else
+    % '처음으로 전류가 0이 아닌' 바로 이전 인덱스가 초기 구간의 마지막
+    idx_init = idx_firstNonZero - 1;
+    if idx_init < 1
+        % 혹시 첫 샘플부터 전류가 0이 아닌 경우 예외처리
+        idx_init = 1;
+        warning('전류가 첫 지점부터 0이 아니므로, 초기 인덱스를 1로 설정했습니다.');
+    end
+end
+
+% 초기 전압 및 초기 SOC
+cellVoltage_init = cellVoltage_meas(idx_init);
 SOC0 = interp1(ocvCellVoltage, socOCV, cellVoltage_init, 'linear', 'extrap');
 
 % 시계열 간격
@@ -49,8 +67,8 @@ charge_integral = cumtrapz(time_s, cellCurrent);  % [A·s]
 SOC_t = SOC0 - (charge_integral / (Q_batt*3600))*100;  % [%]
 
 %% 7) tau1, tau2 격자 생성
-tau1_candidates = linspace(0.1, 10, 21);   % (예) 0.1 ~ 10, 총 21점
-tau2_candidates = linspace(20, 80, 21);   % (예) 20 ~ 80, 총 21점
+tau1_candidates = linspace(0.1, 20, 21);   % (예) 0.1 ~ 10, 총 21점
+tau2_candidates = linspace(200, 300, 21);   % (예) 20 ~ 80, 총 21점
 
 % costSurface(i,j) = RMSE at (tau1_candidates(i), tau2_candidates(j))
 costSurface = zeros(length(tau1_candidates), length(tau2_candidates));
