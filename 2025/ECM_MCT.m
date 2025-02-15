@@ -149,7 +149,7 @@ for mctNumber = 1:6
         % (iii) MCT-1의 경우 쿨롱 카운팅(Coulomb Counting) 계산 및 비교
         if mctNumber == 1
             % (a) 셀 정격 용량 (예시 값, 실제로 수정 필요)
-            capacityAh = 42;  
+            capacityAh = 56.2396;  
             
             % (b) 쿨롱카운팅용 SOC 벡터 초기화
             coulombSoc = zeros(size(time));

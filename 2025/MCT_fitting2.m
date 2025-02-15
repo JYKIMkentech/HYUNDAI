@@ -20,10 +20,10 @@ Q_batt_candidates = 56.2396;  % 예: linspace(50,60,10);
 %  3개 파라미터: X = [R0, R1, tau1]
 x0 = [0.001,  ... R0 초기값
       0.0005, ... R1 초기값
-      100];    ... tau1 초기값
+      36];    ... tau1 초기값
 
 lb = [0, 0, 0];
-ub = [inf, inf, 300];
+ub = [inf, inf, 108];
 
 options = optimoptions('fmincon','Display','off','Algorithm','sqp', ...
                        'MaxIterations',1000,'MaxFunctionEvaluations',5000);
