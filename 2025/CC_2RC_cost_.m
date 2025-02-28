@@ -1,6 +1,6 @@
 %% script_2RC_TauSurface_paramArray.m
 % (목적) tau1, tau2를 격자(grid)로 고정하고, R0,R1,R2만 최적화하여 RMSE를 계산
-%        -> (tau1, tau2) 에 대한 Cost(RMSE) Surface를 그림
+%        -> (tau1, tau2)에 대한 Cost(RMSE) Surface를 그림
 %        -> paramArray에 초기값, 최적화값, RMSE 등을 모두 저장
 
 clear; clc; close all;
@@ -41,15 +41,13 @@ cellCurrent      = packCurrent / 2;    % 셀 전류
 idx_firstNonZero = find(cellCurrent ~= 0, 1, 'first');
 
 if isempty(idx_firstNonZero)
-    % 전 구간 전류가 0이면 맨 처음(또는 맨 끝)을 택해도 되지만,
-    % 여기서는 맨 앞 인덱스로 설정
+    % 전 구간 전류가 0이면 맨 앞 인덱스로
     idx_init = 1;
     warning('cellCurrent가 전체 구간에서 0입니다. 초기 인덱스를 1로 설정했습니다.');
 else
-    % '처음으로 전류가 0이 아닌' 바로 이전 인덱스가 초기 구간의 마지막
+    % '처음으로 전류가 0이 아닌' 바로 이전 인덱스
     idx_init = idx_firstNonZero - 1;
     if idx_init < 1
-        % 혹시 첫 샘플부터 전류가 0이 아닌 경우 예외처리
         idx_init = 1;
         warning('전류가 첫 지점부터 0이 아니므로, 초기 인덱스를 1로 설정했습니다.');
     end
@@ -60,15 +58,15 @@ cellVoltage_init = cellVoltage_meas(idx_init);
 SOC0 = interp1(ocvCellVoltage, socOCV, cellVoltage_init, 'linear', 'extrap');
 
 % 시계열 간격
-dt = [0; diff(time_s)];
+dt = [1; diff(time_s)];
 
 % 시계열 SOC(t) 계산
 charge_integral = cumtrapz(time_s, cellCurrent);  % [A·s]
 SOC_t = SOC0 - (charge_integral / (Q_batt*3600))*100;  % [%]
 
 %% 7) tau1, tau2 격자 생성
-tau1_candidates = linspace(0.1, 20, 21);   % (예) 0.1 ~ 10, 총 21점
-tau2_candidates = linspace(200, 300, 21);   % (예) 20 ~ 80, 총 21점
+tau1_candidates = linspace(0.1, 20, 21);   % (예시) 0.1 ~ 20, 총 21점
+tau2_candidates = linspace(200, 300, 21);  % (예시) 200 ~ 300, 총 21점
 
 % costSurface(i,j) = RMSE at (tau1_candidates(i), tau2_candidates(j))
 costSurface = zeros(length(tau1_candidates), length(tau2_candidates));
@@ -127,34 +125,14 @@ fprintf('\n=== Best RMSE = %.4f ===\n', bestRMSE);
 fprintf('   tau1* = %.3f, tau2* = %.3f\n', best_tau1, best_tau2);
 fprintf('   [R0,R1,R2] = [%.4f, %.4f, %.4f]\n', best_R0, best_R1, best_R2);
 
-%% [추가] 사용자 정의 "초기 추정" (tau1_init, tau2_init)에 대한 결과 확인
-tau1_init = 6;   % 예: 6초
-tau2_init = 30;  % 예: 30초
-
-% (1) 격자 중에서 init값과 가장 가까운 인덱스 찾기
-[~, idx_i_guess] = min(abs(tau1_candidates - tau1_init));
-[~, idx_j_guess] = min(abs(tau2_candidates - tau2_init));
-
-% (2) 해당 인덱스에서의 RMSE 및 (R0,R1,R2)
-costAtGuess  = costSurface(idx_i_guess, idx_j_guess);
-
-% paramArray에서 R0,R1,R2 가져오기
-paramAtGuess = squeeze(paramArray(idx_i_guess, idx_j_guess, :));  
-% -> [initR0, initR1, initR2, initTau1, initTau2, optR0, optR1, optR2, optTau1, optTau2, RMSE]
-
-fprintf('\n--- [Initial guess] tau1=%.2f, tau2=%.2f ---\n', tau1_init, tau2_init);
-fprintf('    -> RMSE = %.4f\n', costAtGuess);
-fprintf('    -> [R0,R1,R2] = [%.4f, %.4f, %.4f]\n', ...
-    paramAtGuess(6), paramAtGuess(7), paramAtGuess(8));
-
-%% 10) Surf 그래프 (3D) 그리기 + 최솟값 지점, 초기 추정 지점 표시
-[T1, T2] = meshgrid(tau2_candidates, tau1_candidates);  
-% ※ surf() 시 X->열방향(tau2), Y->행방향(tau1) 순서이므로 주의
+%% 10) Surf 그래프 (3D) 그리기 + 최솟값 지점 표시
+%  (tau2를 X축, tau1을 Y축으로 하여 surf)
+[T2, T1] = meshgrid(tau2_candidates, tau1_candidates);
 
 figure('Name','RMSE Surface','NumberTitle','off');
-surfH = surf(T1, T2, costSurface, ...
+surfH = surf(T2, T1, costSurface, ...
     'EdgeColor','none','FaceColor','interp', ...  % 보기 좋게
-    'DisplayName','RMSE Surface');                
+    'DisplayName','RMSE Surface');
 shading interp; colorbar; grid on;
 xlabel('\tau_2'); ylabel('\tau_1'); zlabel('RMSE (V)');
 title(['MCT-' num2str(mctNumber) ' : RMSE Surface']);
@@ -164,36 +142,39 @@ hold on;
 minH = plot3(best_tau2, best_tau1, bestRMSE, ...
     'ro','MarkerSize',10,'LineWidth',1.5, ...
     'DisplayName', ...
-    sprintf(['Min RMSE point \n(Opt \\tau_1=%.2f, \\tau_2=%.2f)'], ...
+    sprintf(['Min RMSE point \n(\\tau_1=%.2f, \\tau_2=%.2f)'], ...
              best_tau1, best_tau2));
 
-% (2) 초기 추정값 지점(파란 동그라미)
-guessH = plot3(tau2_init, tau1_init, costAtGuess, ...
-    'bo','MarkerSize',10,'LineWidth',1.5, ...
-    'DisplayName', ...
-    sprintf(['Initial guess \n(\\tau_1=%.2f, \\tau_2=%.2f)'], ...
-             tau1_init, tau2_init));
+% 예: 만약 tau1_init, tau2_init, costAtGuess 등을 표시하고 싶다면
+%     아래와 같이 추가로 plot 해줄 수 있습니다.
+% (2) 초기 guess 지점(파란 동그라미) - (옵션)
+% tau1_init = ...;
+% tau2_init = ...;
+% costAtGuess = ...;
+% guessH = plot3(tau2_init, tau1_init, costAtGuess, ...
+%     'bo','MarkerSize',10,'LineWidth',1.5, ...
+%     'DisplayName', ...
+%     sprintf(['Initial guess \n(\\tau_1=%.2f, \\tau_2=%.2f)'], ...
+%              tau1_init, tau2_init));
+%
+% legend([surfH, minH, guessH], 'Location','best');
 
-legend([surfH, minH, guessH], 'Location','best');
+legend([surfH, minH], 'Location','best');
 
 %% (옵션) Contour(2D)로도 표시
 figure('Name','RMSE Contour (tau1 vs tau2)','NumberTitle','off');
 contourf(tau2_candidates, tau1_candidates, costSurface, 20, 'LineColor','none');
 hold on;
-
-% (1) 최소값 지점 표시 (2D 평면 빨간 점)
-plot(best_tau2, best_tau1, 'ro','MarkerSize',10,'LineWidth',1.5);
-
-% (2) 초기값 지점 표시 (2D 평면 파란 점)
-plot(tau2_init, tau1_init, 'bo','MarkerSize',10,'LineWidth',1.5);
-
+plot(best_tau2, best_tau1, 'ro','MarkerSize',10,'LineWidth',1.5);  % 최소값
 xlabel('\tau_2'); ylabel('\tau_1');
 title(['MCT-' num2str(mctNumber) ' : RMSE Contour']);
 colorbar; grid on;
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% (아래는 로컬 함수 정의부)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 function cost = computeRMSE_2RC_3param(x, tau1, tau2, ...
                                        SOC_t, I_cell, dt, ...
                                        V_meas, socOCV, ocvCellVoltage)
@@ -214,31 +195,34 @@ end
 function V_est = modelVoltage_2RC_3param(R0, R1, R2, tau1, tau2, ...
                                          SOC_t, I_cell, dt, ...
                                          socOCV, ocvCellVoltage)
-    % 2개의 RC (전압 항) 초기값
-    Vrc1 = 0;
-    Vrc2 = 0;
+    % R0, R1, R2, tau1, tau2는 상위 함수에서 전달됨
 
     N = length(SOC_t);
     V_est = zeros(N,1);
 
+    % 루프 돌면서 RC 전압 갱신
     for k = 1:N
         % (1) OCV (SOC 기반 보간)
         OCV_now = interp1(socOCV, ocvCellVoltage, SOC_t(k), 'linear', 'extrap');
 
         % (2) R0 전압 강하
-        IR0 = R0 * I_cell(k);
+        V_drop_R0 = R0 * I_cell(k);
 
-        % (3) RC 업데이트
-        if k > 1
-            alpha1 = exp(-dt(k)/tau1);
-            alpha2 = exp(-dt(k)/tau2);
+        % (3) RC1, RC2 업데이트
+        alpha1 = exp(-dt(k)/tau1);
+        alpha2 = exp(-dt(k)/tau2);
 
+        if k == 1
+            % 첫 샘플: Vrc1, Vrc2를 바로 계산 (초기값 선언 없이)
+            Vrc1 = R1 * I_cell(k)*(1 - alpha1);
+            Vrc2 = R2 * I_cell(k)*(1 - alpha2);
+        else
+            % 이후 샘플: Vrc1, Vrc2를 점진적으로 업데이트
             Vrc1 = Vrc1*alpha1 + R1*(1 - alpha1)*I_cell(k);
             Vrc2 = Vrc2*alpha2 + R2*(1 - alpha2)*I_cell(k);
         end
 
-        % (4) 최종 전압
-        V_est(k) = OCV_now - IR0 - Vrc1 - Vrc2;
+        % (4) 최종 전압 = OCV - (R0강하 + RC1 + RC2)
+        V_est(k) = OCV_now - V_drop_R0 - Vrc1 - Vrc2;
     end
 end
-

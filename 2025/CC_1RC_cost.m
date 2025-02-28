@@ -53,7 +53,7 @@ cellVoltage_init = cellVoltage_meas(idx_init);
 SOC0 = interp1(ocvCellVoltage, socOCV, cellVoltage_init, 'linear', 'extrap');
 
 % 시간간격 dt, SOC 계산
-dt             = [0; diff(time_s)];
+dt             = [1; diff(time_s)];
 charge_integral = cumtrapz(time_s, cellCurrent);        % A·s
 SOC_t          = SOC0 - (charge_integral / (Q_batt*3600))*100;  % [%]
 
@@ -128,25 +128,28 @@ end
 function V_est = modelVoltage_1RC_2param(R0, R1, tau1, ...
                                          SOC_t, I_cell, dt, ...
                                          socOCV, ocvCellVoltage)
-    N   = length(SOC_t);
-    Vrc = 0;                % RC 항 초기값
-    V_est = zeros(N, 1);    % 전체 시점에 대한 모델 전압
+    N = length(SOC_t);
+    V_est = zeros(N, 1);
 
     for k = 1:N
-        % (1) OCV (SOC 기반 보간)
+        % (1) OCV
         OCV_now = interp1(socOCV, ocvCellVoltage, SOC_t(k), 'linear', 'extrap');
 
-        % (2) R0 전압 강하
+        % (2) R0 전압강하
         IR0 = R0 * I_cell(k);
 
-        % (3) RC 전압 업데이트
-        if k > 1
-            alpha = exp(-dt(k)/tau1);
-            Vrc   = Vrc*alpha + R1*(1 - alpha)*I_cell(k);
+        % (3) RC1 업데이트
+        alpha1 = exp(-dt(k)/tau1);
+        if k == 1
+            % 첫 샘플에서만 RC 전압을 직접 설정
+            Vrc1 = R1 * I_cell(1) * (1 - alpha1);
+        else
+            % 이후는 기존 공식
+            Vrc1 = Vrc1*alpha1 + R1*(1 - alpha1)*I_cell(k);
         end
 
         % (4) 최종 전압
-        V_est(k) = OCV_now - IR0 - Vrc;
+        V_est(k) = OCV_now - IR0 - Vrc1;
     end
 end
 

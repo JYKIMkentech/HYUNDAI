@@ -48,8 +48,8 @@ cellVoltage_meas = packVoltage / 192;
 % (C) Pack -> Cell 전류 변환 (2 병렬)
 cellCurrent = packCurrent / 2;
 
-% (D) 시간 간격, 전체 시간
-dt = [0; diff(time_s)];
+% (D) 시간 간격(요청에 따라 1초 고정 가능하지만 여기서는 diff를 예로 들음)
+dt = [1; diff(time_s)];
 maxTime = max(time_s);
 
 %% 5) (A) 쿨롱카운팅 SOC 계산
@@ -143,7 +143,7 @@ title('CC SOC: V_{meas} vs V_{model}');
 legend('V_{meas}','V_{model}','Location','best');
 grid on;
 
-% (1,2) BMS SOC: V_meas vs V_model
+% (1,2) BMS SOC: V_meas vs V_{model}
 subplot(2,2,2);
 plot(time_s, cellVoltage_meas, 'b-', 'LineWidth',1.1); hold on;
 plot(time_s, V_est_bms,       'r--','LineWidth',1.1);
@@ -265,13 +265,10 @@ for iWin = 1:numWindows100
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% 로컬 함수 정의
+%% 로컬 함수들
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 function cost = computeRMSE_2RC_tau(X, SOC_t, I_cell, dt, V_meas, socOCV, ocvCellVoltage)
     % X: [R0, R1, R2, tau1, tau2]
-    % RMSE = sqrt( mean( (V_meas - V_est)^2 ) )
-    
     V_est = modelVoltage_2RC_tau(X, SOC_t, I_cell, dt, socOCV, ocvCellVoltage);
     cost  = sqrt(mean((V_meas - V_est).^2));
 end
@@ -279,9 +276,11 @@ end
 function V_est = modelVoltage_2RC_tau(X, SOC_t, I_cell, dt, socOCV, ocvCellVoltage)
     % 2-RC 모델 식:
     %  V_est(k) = OCV(SOC(k)) - R0*I(k) - Vrc1(k) - Vrc2(k)
-    %  Vrc1(k+1) = exp(-dt/tau1)*Vrc1(k) + R1*(1-exp(-dt/tau1))*I(k)
-    %  Vrc2(k+1) = exp(-dt/tau2)*Vrc2(k) + R2*(1-exp(-dt/tau2))*I(k)
-    
+    %  첫 샘플(k=1)에선 Vrc1= R1*I(1)*(1 - alpha1), Vrc2= R2*I(1)*(1 - alpha2)
+    %  이후 k>1에 대해:
+    %    Vrc1(k) = alpha1*Vrc1(k-1) + R1*(1-alpha1)*I(k)
+    %    Vrc2(k) = alpha2*Vrc2(k-1) + R2*(1-alpha2)*I(k)
+
     R0   = X(1);
     R1   = X(2);
     R2   = X(3);
@@ -290,29 +289,31 @@ function V_est = modelVoltage_2RC_tau(X, SOC_t, I_cell, dt, socOCV, ocvCellVolta
     
     N = length(SOC_t);
     V_est = zeros(N,1);
-    
-    Vrc1 = 0;  % RC1 초기값
-    Vrc2 = 0;  % RC2 초기값
-    
+
     for k = 1:N
-        % (1) OCV (SOC->전압 보간)
+        % (1) OCV
         OCV_now = interp1(socOCV, ocvCellVoltage, SOC_t(k), 'linear','extrap');
-        
+
         % (2) R0 전압강하
         IR0 = R0 * I_cell(k);
+
+        % (3) RC1, RC2 업데이트
+        alpha1 = exp(-dt(k)/tau1);
+        alpha2 = exp(-dt(k)/tau2);
         
-        % (3) RC 항 업데이트
-        if k > 1
-            alpha1 = exp(-dt(k)/tau1);
-            alpha2 = exp(-dt(k)/tau2);
-            Vrc1 = alpha1 * Vrc1 + R1*(1 - alpha1)*I_cell(k);
-            Vrc2 = alpha2 * Vrc2 + R2*(1 - alpha2)*I_cell(k);
+        if k == 1
+            % 첫 샘플에서 RC 전압 초기화
+            Vrc1 = R1 * I_cell(k) * (1 - alpha1);
+            Vrc2 = R2 * I_cell(k) * (1 - alpha2);
+        else
+            % 이후 샘플: 이전 RC값에서 업데이트
+            Vrc1 = Vrc1*alpha1 + R1*(1 - alpha1)*I_cell(k);
+            Vrc2 = Vrc2*alpha2 + R2*(1 - alpha2)*I_cell(k);
         end
         
         % (4) 최종 모델 전압
         V_est(k) = OCV_now - IR0 - Vrc1 - Vrc2;
     end
 end
-
 
 

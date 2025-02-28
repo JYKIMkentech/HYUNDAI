@@ -42,7 +42,6 @@ OCVMCT = table('Size',[6 2], ...
            
 %% (추가) 배터리 정보(예시)
 %  - 직렬: 192개, 병렬: 2개
-%  - 단위 Cell 정격용량(Q_cell): 예시 21 Ah 라고 가정 → pack은 병렬 2개이므로 Q_batt = 42 Ah
 numSeries   = 192;
 numParallel = 2;
 Q_batt      = 56.2396;  % [Ah]

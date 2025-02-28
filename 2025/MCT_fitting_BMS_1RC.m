@@ -21,7 +21,7 @@ Q_batt = 56.2396;
 % 1-RC: 파라미터 X = [R0, R1, tau1]
 x0 = [0.001,  ... R0
       0.0005, ... R1
-      306];    ... tau1
+      306];   ... tau1 (예시)
 
 lb = [0, 0, 0];
 ub = [inf, inf, 918];
@@ -47,7 +47,7 @@ cellVoltage_meas = packVoltage / 192;
 cellCurrent = packCurrent / 2;
 
 % (D) 시간 간격, 전체 시간
-dt = [0; diff(time_s)];
+dt = [1; diff(time_s)];  % 여기서는 첫 샘플 간격을 1초로 가정
 maxTime = max(time_s);
 
 %% 5) (A) 쿨롱카운팅 SOC 계산
@@ -128,7 +128,6 @@ ax = gca; ax.YColor = 'b';   % 오른쪽 축 파란색으로
 
 legend('V_{data}','V_{model}','I_{data}','Location','best');
 xlabel('Time (s)');
-% title('BMS SOC - Voltage & Current');  % 주석처리
 grid on;
 
 % (A-2) 전압 Error
@@ -136,7 +135,6 @@ subplot(2,1,2);
 plot(time_s, cellVoltage_meas - V_est_bms, 'k', 'LineWidth', 1.2);
 xlabel('Time (s)');
 ylabel('Voltage Error (V)');
-% title('BMS SOC - Error (V_{data} - V_{model})');  % 주석처리
 grid on;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -160,7 +158,6 @@ ax = gca; ax.YColor = 'b';
 
 legend('V_{data}','V_{model}','I_{data}','Location','best');
 xlabel('Time (s)');
-% title('CC SOC - Voltage & Current');  % 주석처리
 grid on;
 
 % (B-2) 전압 Error
@@ -168,7 +165,6 @@ subplot(2,1,2);
 plot(time_s, cellVoltage_meas - V_est_cc, 'k', 'LineWidth', 1.2);
 xlabel('Time (s)');
 ylabel('Voltage Error (V)');
-% title('CC SOC - Error');  % 주석처리
 grid on;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -203,7 +199,6 @@ for iWin = 1:numWindows30
 
     legend('V_{data}','V_{model}','I_{data}','Location','best');
     xlabel('Time (s)');
-    % title('BMS - 30s window');  % 주석처리
     grid on;
 
     % (C-2) 전압 Error
@@ -211,7 +206,6 @@ for iWin = 1:numWindows30
     plot(time_s(idx), cellVoltage_meas(idx) - V_est_bms(idx), 'k', 'LineWidth',1.2);
     xlabel('Time (s)');
     ylabel('Voltage Error (V)');
-    % title('Error = V_{data} - V_{model}');  % 주석처리
     grid on;
 end
 
@@ -247,7 +241,6 @@ for iWin = 1:numWindows100
 
     legend('V_{data}','V_{model}','I_{data}','Location','best');
     xlabel('Time (s)');
-    % title('BMS - 100s window');  % 주석처리
     grid on;
 
     % (D-2) 전압 Error
@@ -255,7 +248,6 @@ for iWin = 1:numWindows100
     plot(time_s(idx), cellVoltage_meas(idx) - V_est_bms(idx), 'k', 'LineWidth',1.2);
     xlabel('Time (s)');
     ylabel('Voltage Error (V)');
-    % title('Error = V_{data} - V_{model}');  % 주석처리
     grid on;
 end
 
@@ -291,7 +283,6 @@ for iWin = 1:numWindows30
 
     legend('V_{data}','V_{model}','I_{data}','Location','best');
     xlabel('Time (s)');
-    % title('CC - 30s window');  % 주석처리
     grid on;
 
     % (E-2) 전압 Error
@@ -299,7 +290,6 @@ for iWin = 1:numWindows30
     plot(time_s(idx), cellVoltage_meas(idx) - V_est_cc(idx), 'k', 'LineWidth',1.2);
     xlabel('Time (s)');
     ylabel('Voltage Error (V)');
-    % title('Error = V_{data} - V_{model}');  % 주석처리
     grid on;
 end
 
@@ -335,7 +325,6 @@ for iWin = 1:numWindows100
 
     legend('V_{data}','V_{model}','I_{data}','Location','best');
     xlabel('Time (s)');
-    % title('CC - 100s window');  % 주석처리
     grid on;
 
     % (F-2) 전압 Error
@@ -343,22 +332,17 @@ for iWin = 1:numWindows100
     plot(time_s(idx), cellVoltage_meas(idx) - V_est_cc(idx), 'k', 'LineWidth',1.2);
     xlabel('Time (s)');
     ylabel('Voltage Error (V)');
-    % title('Error = V_{data} - V_{model}');  % 주석처리
     grid on;
 end
 
 %% (Z) BMS SOC vs CC SOC : 한 그림에 비교 플롯
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 figure('Name','[SOC 비교: BMS vs CC]','NumberTitle','off');
-c_local = lines(3);  % 또는 lines(2)로 해도 무방
-
+c_local = lines(3);
 plot(time_s, SOC_bms, 'Color', c_local(1,:), 'LineWidth', 1.5); hold on;
 plot(time_s, SOC_cc,  'Color', c_local(2,:), 'LineWidth', 1.5);
-
 xlabel('Time (s)');
 ylabel('SOC (%)');
 legend('BMS SOC','CC SOC','Location','best');
-% title('Time vs SOC');  % <-- 주석처리 가능
 grid on;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -366,7 +350,7 @@ grid on;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function cost = computeRMSE_1RC_tau(X, SOC_t, I_cell, dt, V_meas, socOCV, ocvCellVoltage)
     V_est = modelVoltage_1RC_tau(X, SOC_t, I_cell, dt, socOCV, ocvCellVoltage);
-    cost = sqrt(mean((V_est - V_meas).^2));
+    cost  = sqrt(mean((V_meas - V_est).^2));
 end
 
 function V_est = modelVoltage_1RC_tau(X, SOC_t, I_cell, dt, socOCV, ocvCellVoltage)
@@ -375,11 +359,9 @@ function V_est = modelVoltage_1RC_tau(X, SOC_t, I_cell, dt, socOCV, ocvCellVolta
     R1   = X(2);
     tau1 = X(3);
 
-    % 1개의 RC 전압 항 (초기값)
-    Vrc1 = 0;
-
     N = length(SOC_t);
     V_est = zeros(N,1);
+    % (주의) Vrc1=0; 선언을 제거하고, 첫 샘플에서 직접 계산
 
     for k = 1:N
         % (1) OCV (SOC -> 전압 보간)
@@ -388,15 +370,18 @@ function V_est = modelVoltage_1RC_tau(X, SOC_t, I_cell, dt, socOCV, ocvCellVolta
         % (2) R0 전압강하
         IR0 = R0 * I_cell(k);
 
-        % (3) RC 항 업데이트
-        if k > 1
-            alpha1 = exp(-dt(k)/tau1);
-            Vrc1 = alpha1*Vrc1 + R1*(1 - alpha1)*I_cell(k);
+        % (3) RC 항 계산
+        alpha1 = exp(-dt(k)/tau1);
+        if k == 1
+            % 첫 샘플(k=1): 초기 RC 전압 설정
+            Vrc1 = R1 * I_cell(k) * (1 - alpha1);
+        else
+            % 이후(k>1)
+            Vrc1 = Vrc1*alpha1 + R1*(1 - alpha1)*I_cell(k);
         end
 
         % (4) 최종 모델 전압
         V_est(k) = OCV_now - IR0 - Vrc1;
     end
 end
-
 
