@@ -72,7 +72,7 @@ output : fitting 결과값, fitting plot
 
 재계산 soc 기준으로 fitting한 code
 
-3. MCT_fitting_BMS_1RC,MCT_fitting_CC_2RC
+3. MCT_fitting_BMS_1RC,MCT_fitting_BMS_2RC
 
 input : 가공된 MCT data
 output : fitting 결과값, fitting plot
